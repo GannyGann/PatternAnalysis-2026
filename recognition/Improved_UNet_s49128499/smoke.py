@@ -1,10 +1,11 @@
 from dataset import load_data_2D
 import glob, os
 
-DATA_DIR = "data/keras_slices_data"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, "data", "keras_slices_data")
 
-image_paths = sorted(glob.glob(os.path.join(DATA_DIR, "keras_slices_train", "*.nii")))
-label_paths = sorted(glob.glob(os.path.join(DATA_DIR, "keras_slices_seg_train", "*.nii")))
+image_paths = sorted(glob.glob(os.path.join(DATA_DIR, "keras_slices_train", "*.nii.gz")))
+label_paths = sorted(glob.glob(os.path.join(DATA_DIR, "keras_slices_seg_train", "*.nii.gz")))
 
 # take tiny subset from image and labels
 subs_images = image_paths[:20]
