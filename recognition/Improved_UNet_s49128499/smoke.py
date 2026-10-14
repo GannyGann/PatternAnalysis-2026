@@ -3,8 +3,8 @@ import glob, os
 
 DATA_DIR = "data/keras_slices_data"
 
-image_paths = sorted(glob.glob(os.path.join(DATA_DIR, "**", "*image*.nii"), recursive=True))
-label_paths = sorted(glob.glob(os.path.join(DATA_DIR, "**", "*label*.nii"), recursive=True))
+image_paths = sorted(glob.glob(os.path.join(DATA_DIR, "keras_slices_train", "*.nii")))
+label_paths = sorted(glob.glob(os.path.join(DATA_DIR, "keras_slices_seg_train", "*.nii")))
 
 # take tiny subset from image and labels
 subs_images = image_paths[:20]
