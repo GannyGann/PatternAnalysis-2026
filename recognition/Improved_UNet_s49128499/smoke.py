@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from modules import UNet2D as BasicUNet, dice_per_class
+import time
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data", "keras_slices_data")
@@ -47,6 +48,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 torch.cuda.reset_peak_memory_stats() if torch.cuda.is_available() else None
 
 for epoch in range(10):
+    start = time.perf_counter()
     model.train()
     total_loss = 0
     for xb, yb in loader:
@@ -59,7 +61,11 @@ for epoch in range(10):
         optimizer.step()
         total_loss += loss.item()
 
-    print(f"Epoch {epoch+1}: loss = {total_loss/len(loader):.4f}")
+    if device.type == "cuda":
+        torch.cuda.synchronize() 
+    elapsed = time.perf_counter() - start
+
+    print(f"Epoch {epoch+1}: loss = {total_loss/len(loader):.4f} | time={elapsed:.2f}s")
 
 if torch.cuda.is_available():
     print(f"Peak VRAM: {torch.cuda.max_memory_allocated()/1024**3:.2f} GB")
