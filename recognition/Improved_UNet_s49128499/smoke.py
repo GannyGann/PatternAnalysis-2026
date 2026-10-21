@@ -42,3 +42,24 @@ model = BasicUNet(in_channels=1, num_classes=6).to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+# training
+torch.cuda.reset_peak_memory_stats() if torch.cuda.is_available() else None
+
+for epoch in range(10):
+    model.train()
+    total_loss = 0
+    for xb, yb in loader:
+        xb, yb = xb.to(device), yb.to(device)
+
+        optimizer.zero_grad()
+        out = model(xb) # (B,6,H,W)
+        loss = criterion(out, yb.argmax(dim=1)) # expects class indices
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+
+    print(f"Epoch {epoch+1}: loss = {total_loss/len(loader):.4f}")
+
+if torch.cuda.is_available():
+    print(f"Peak VRAM: {torch.cuda.max_memory_allocated()/1024**3:.2f} GB")

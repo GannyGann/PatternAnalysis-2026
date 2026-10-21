@@ -8,7 +8,7 @@ how it works in a paragraph, and a figure/visualisation.
 
 
 ## Dependencies
-
+torch version: 2.14.1+cu126
 • Any dependencies required, including exact versions, and address reproducibility of results.
 
 ## Example inputs/outputs + Visual Plots
