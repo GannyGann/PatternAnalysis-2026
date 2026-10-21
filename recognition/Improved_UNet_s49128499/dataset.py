@@ -7,12 +7,12 @@ import numpy as np
 import nibabel as nib
 from tqdm import tqdm
 
-def to_channels(arr: np.ndarray, dtype=np.uint8) -> np.ndarray:
-    channels = np.unique(arr)
-    res = np.zeros(arr.shape + (len(channels) ,), dtype=dtype)
-    for c in channels:
-        c = int(c)
-        res[..., c:c+1][arr == c] = 1
+def to_channels(arr: np.ndarray, classes=(0, 1, 2, 3, 4, 5), dtype=np.uint8) -> np.ndarray:
+    # channels = np.unique(arr)
+    res = np.zeros(arr.shape + (len(classes) ,), dtype=dtype)
+    for idx, c in enumerate(classes):
+        # c = int(c)
+        res[..., idx][arr == c] = 1
 
     return res
 
