@@ -11,13 +11,13 @@ import torch.nn as nn
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data", "keras_slices_data")
 
-# Training loop
+# training loop
 def train_one_epoch(model, loader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
-    for images, masks in loader:
+    for images, labels in loader:
         images = images.to(device)
-        labels = masks.argmax(1).to(device)
+        labels = labels.argmax(1).to(device)
 
         optimizer.zero_grad()
         logits = model(images)
@@ -26,6 +26,58 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
         optimizer.step()
         total_loss += loss.item()
     return total_loss / len(loader)
+
+# validation loop
+@torch.no_grad()
+def validate(model, loader, criterion, device, num_classes=6):
+    model.eval()
+    total_loss = 0.0
+
+    dice_sum = torch.zeros(num_classes)
+    prec_sum = torch.zeros(num_classes)
+    rec_sum = torch.zeros(num_classes)
+    n_batches = 0
+
+    for images, labels in loader:
+        images = images.to(device)
+        labels = labels.argmax(1).to(device)
+
+        logits = model(images)
+        total_loss += criterion(logits, labels).item()
+
+        m = per_class_metrics(logits, labels, num_classes)
+        dice_sum += m["dice"].cpu()
+        prec_sum += m["precision"].cpu()
+        rec_sum += m["recall"].cpu()
+        n_batches += 1
+
+    return {
+        "loss": total_loss / n_batches, "dice": dice_sum / n_batches, 
+        "precision": prec_sum / n_batches, "recall": rec_sum / n_batches
+    }
+
+def per_class_metrics(logits, target, num_classes=6, eps=1e-6):
+    """
+    returns dict of per-class dice, precision, recall as tensors
+    """
+
+    pred = logits.argmax(1)
+    dice = torch.zeros(num_classes)
+    prec = torch.zeros(num_classes)
+    rec = torch.zeros(num_classes)
+
+    for c in range(num_classes):
+        p = (pred == c)
+        t = (target == c)
+        tp = (p & t).sum().float()
+        fp = (p & ~t).sum().float()
+        fn = (~p & t).sum().float()
+
+        dice[c] = (2 * tp + eps) / (2 * tp + fp + fn + eps)
+        prec[c] = (tp + eps) / (tp + fp + eps)
+        rec[c]  = (tp + eps) / (tp + fn + eps)
+
+    return {"dice": dice, "precision": prec, "recall": rec}
 
 def main():
     parser = argparse.ArgumentParser()

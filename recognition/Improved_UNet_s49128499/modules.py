@@ -67,16 +67,3 @@ class UNet2D(nn.Module):
         x = self.u3(x, x2)
         x = self.u4(x, x1)
         return self.out(x)  # logits (B, C, H, W)
-
-def dice_per_class(logits, target, num_classes=6, eps=1e-6):
-    """
-    Mean Dice per class over the batch; returns tensor (num_classes,).
-    Expects class index targets and not one-hot
-    """
-    pred = logits.argmax(1)
-    scores = []
-    for c in range(num_classes):
-        p, t = (pred == c).float(), (target == c).float()
-        inter = (p * t).sum()
-        scores.append((2 * inter + eps) / (p.sum() + t.sum() + eps))
-    return torch.stack(scores)
