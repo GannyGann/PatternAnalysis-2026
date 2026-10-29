@@ -8,9 +8,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import time
+import matplotlib.pyplot as plt
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data", "keras_slices_data")
+IMG_DIR = os.path.join(SCRIPT_DIR, "images")
 
 # training loop
 def train_one_epoch(model, loader, criterion, optimizer, device):
@@ -84,10 +86,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="unet2d")
     parser.add_argument("--data-dir", default=DATA_DIR)
-    parser.add_argument("--epochs", type=int, default=2)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--num-workers", type=int, default=2)
     args = parser.parse_args()
 
     # seeds
@@ -115,6 +117,7 @@ def main():
 
     # training
     tracking = {"train_loss": [], "val_loss": [], "val_dice": []}
+    best_val_dice = 0.0
 
     # peak memory
     if torch.cuda.is_available():
@@ -142,10 +145,37 @@ def main():
         print(f"prostate_dice={prostate_dice:.4f}")
         print(f"time={elapsed:.1f}s")
 
+        #save best checkpoint for val_dice
+        if prostate_dice > best_val_dice:
+            best_val_dice = prostate_dice
+            torch.save({
+                "epoch": epoch,
+                "model_state": model.state_dict(),
+                "optimizer_state": optimizer.state_dict(),
+                "val_dice": prostate_dice,
+                "args": vars(args),
+            }, os.path.join(SCRIPT_DIR, f"best_{args.model}.pt"))
+
+    # save final checkpoint
+    torch.save(model.state_dict(), os.path.join(SCRIPT_DIR, f"final_{args.model}.pt"))
+
     # peak vram
     if torch.cuda.is_available():
         peak = torch.cuda.max_memory_allocated() / 1024**3
         print(f"Peak VRAM: {peak:.2f} GB")
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    axes[0].plot(tracking["train_loss"], label="train")
+    axes[0].plot(tracking["val_loss"], label="val")
+    axes[0].set_xlabel("Epoch"); axes[0].set_ylabel("Loss")
+    axes[0].legend(); axes[0].set_title("Loss")
+
+    axes[1].plot(tracking["val_dice"], label="val prostate Dice")
+    axes[1].set_xlabel("Epoch"); axes[1].set_ylabel("Dice")
+    axes[1].legend(); axes[1].set_title("Prostate Dice")
+
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     main()
