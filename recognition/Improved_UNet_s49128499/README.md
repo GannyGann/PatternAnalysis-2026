@@ -4,8 +4,51 @@ A title, a description of the algorithm and the problem that it solves (approxim
 how it works in a paragraph, and a figure/visualisation.
 
 ## Feasibility Review
-• Your one-page written feasibility review from Section 3.
 
+### 1. User Need, Scope & Acceptance Criteria: 
+
+**Intended User:** An imaging specialist reviewing automated prostate contours in a radiotherapy planning pipeline
+
+**Prototype Purpose:** Determine whether a 2D Improved U-Net can draft the prostate clinical target volume with sufficient boundary accuracy to reduce manual contouring time, without leakage into adjacent organs at risk.
+
+**Acceptance Criteria:**
+
+| # | Criterion | Target |
+| :-: | - | :-: |
+| AC1 | Prostate Dice on hold-out test set | ≥ 0.75 |
+| AC2 | Prostate Precision and Recall | ≥ 0.85, ≥ 0.85 |
+| AC3 | Boundary Precision: 95% Hausdorff Distance (HD95) for prostate | ≤ 5mm |
+| AC4 | Peak VRAM | ≤ 2 GB |
+
+### 2. Model Choice & Course Concepts:
+
+**Dataset Configuration:** HipMRI 2D slices  
+**Chosen Model:** 2D Improved U-Net (Normal Difficulty) - Target Dice ≥ 0.75 on prostate label  
+**Baseline Model:** Basic 2D U-Net 
+ 
+- U-Net’s encoder-decoder with skip connections preserves fine spatial detail for precise localisation. 
+- Improved U-Net adds residual blocks and deeper feature extraction supporting better boundary adherence. 
+- U-Net architectures achieve clinically acceptable Dice for prostate target volumes. 
+- The Prostate apex boundaries are inherently blurred which motivates architectural refinement.
+
+### 3. Preliminary Feasibility Evidence:
+
+**Data Audit:** Loaded 20 HipMRI 2D training slices  
+**X shape:** (20, 256, 128)  
+**y shape:** (20, 256, 128, 6)  
+**Smoke Test:** Trained basic 2D U-Net on 20 slices for 10 epochs on cuda with training loss decreasing from 1.94 to 0.84  
+**Peak VRAM:** 0.45 GB at batch size 4, 256x128 input  
+**Per Epoch Time:** 0.22 seconds ~
+### 4. Risks, Budget & Fallback: 
+
+| Risk | Likelihood | Mitigation |
+| - | - | - |
+| Base/Apex under-countouring persists despite Dice ≥ 0.75 | Medium | Report HD95 |
+| Rectal/bladder boundary leakage | Medium | Multi-class training preserves OAR context |
+
+**Computing budget:** Peak VRAM ≤ 2 GB  
+**Next planned experiment:** Train full basic 2D U-Net baseline on complete HipMRI training split  
+**Workable fallback:** If improved U-Net training is unstable, retain basic 2D U-Net as primary model and reframe project accordingly  
 
 ## Dependencies
 torch version: 2.14.1+cu126
