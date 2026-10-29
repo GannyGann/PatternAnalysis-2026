@@ -141,8 +141,8 @@ def evaluate(model, test_dataset, device):
 
         m = per_class_metrics(pred,gt)
         all_dice.append(m["dice"])
-        all_dice.append(m["precision"])
-        all_dice.append(m["recall"])
+        all_prec.append(m["precision"])
+        all_rec.append(m["recall"])
 
         p = (pred == PROSTATE)
         t = (gt == PROSTATE)
@@ -154,9 +154,9 @@ def evaluate(model, test_dataset, device):
             hd95_values.append(hd95_2d(p, t))
             fragment_counts.append(count_fragments(p, min_size=50))
 
-    mean_dice = np.array(all_dice).mean(0)
-    mean_prec = np.array(all_prec).mean(0)
-    mean_rec = np.array(all_rec).mean(0)
+    mean_dice = np.array(all_dice).mean(axis=0)
+    mean_prec = np.array(all_prec).mean(axis=0)
+    mean_rec = np.array(all_rec).mean(axis=0)
 
     micro_prec = TP / (TP + FP) if (TP + FP) > 0 else float("nan")
     micro_rec = TP / (TP + FN) if (TP + FN) > 0 else float("nan")
@@ -175,14 +175,47 @@ def evaluate(model, test_dataset, device):
     return {"dice": mean_dice, "prec": mean_prec, "rec": mean_rec,
             "micro_prec": micro_prec, "micro_rec": micro_rec, "hd95": mean_hd95}
 
-# plots
+# plots (4-panel)
+@torch.no_grad()
+def plot_panel(model, test_ds, idx, device, save_path):
+    img, mask = test_ds[idx]
+    logits = model(img.unsqueeze(0).to(device))
+    pred = logits.argmax(1).squeeze(0).cpu().numpy()
+    gt = mask.argmax(0).numpy()
+    image = img.squeeze(0).numpy()
+
+    gt_p = (gt == PROSTATE)
+    pred_p = (pred == PROSTATE)
+    tp = gt_p & pred_p
+    fp = ~gt_p & pred_p
+    fn = gt_p & ~pred_p
+
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+    axes[0].imshow(image, cmap="gray"); axes[0].set_title("Input")
+    axes[1].imshow(gt_p, cmap="gray"); axes[1].set_title("GT prostate")
+    axes[2].imshow(pred_p, cmap="gray"); axes[2].set_title("Pred prostate")
+    rgb = np.zeros((*gt_p.shape, 3), dtype=np.float32)
+    rgb[..., 0] = fp.astype(np.float32)
+    rgb[..., 1] = tp.astype(np.float32)
+    rgb[..., 2] = fn.astype(np.float32)
+
+    axes[3].imshow(image, cmap="gray")
+    axes[3].imshow(rgb, alpha=0.8)
+    axes[3].set_title(f"TP={tp.sum()} | FP={fp.sum()} | FN={fn.sum()}")
+    for ax in axes: ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150)
+    plt.close()
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="unet2d")
     parser.add_argument("--data-dir", default=DATA_DIR)
     parser.add_argument("--n-panels", type=int, default=5)
+    parser.add_argument("--out-dir", default=os.path.join(SCRIPT_DIR, "figures"))
     args = parser.parse_args()
+
+    os.makedirs(args.out_dir, exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
@@ -209,6 +242,32 @@ def main():
         transform=None,
     )
     print(f"Test slices: {len(test_dataset)}")
+
+    # latency
+    lat = measure_latency(model, test_dataset, device)
+    print(f"Latency (256x128): median={lat['median']:.2f} ms, p95={lat['p95']:.2f} ms")
+
+    # evaluate
+    results = evaluate(model, test_dataset, device)
+
+    # find all test slices that contain prostate
+    prostate_indices = []
+    for idx in range(len(test_dataset)):
+        _, mask = test_dataset[idx]
+        gt = mask.argmax(0).numpy()
+        if (gt == PROSTATE).sum() > 0:
+            prostate_indices.append(idx)
+
+    print(f"Slices containing prostate: {len(prostate_indices)} / {len(test_dataset)}")
+
+    # sample evenly from slices that contain prostate
+    n = min(args.n_panels, len(prostate_indices))
+    step = max(1, len(prostate_indices) // n)
+    selected = [prostate_indices[i * step] for i in range(n)]
+    for i, idx in enumerate(selected):
+        path = os.path.join(args.out_dir, f"{args.model}_panel_{i}.png")
+        plot_panel(model, test_dataset, idx, device, path)
+    print(f"Saved {n} panels to {args.out_dir}/")
 
 if __name__ == "__main__":
     main()
