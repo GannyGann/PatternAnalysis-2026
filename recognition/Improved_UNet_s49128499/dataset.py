@@ -12,6 +12,17 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms.functional as TF
 
+TARGET_H, TARGET_W = 256, 144
+
+def pad_to_size(arr, h=TARGET_H, w=TARGET_W):
+    """Centre-pad a 2D array with zeros up to (h, w). Raises if it's larger."""
+    H, W = arr.shape
+    if H > h or W > w:
+        raise ValueError(f"Slice {arr.shape} is larger than target {(h, w)}")
+    ph, pw = h - H, w - W
+    return np.pad(arr, ((ph // 2, ph - ph // 2), (pw // 2, pw - pw // 2)),
+                  mode="constant", constant_values=0)
+
 def to_channels(arr: np.ndarray, classes=(0, 1, 2, 3, 4, 5), dtype=np.uint8) -> np.ndarray:
     # channels = np.unique(arr)
     res = np.zeros(arr.shape + (len(classes) ,), dtype=dtype)
@@ -111,9 +122,10 @@ class HipMRIDataset(Dataset):
         # normalise image
         img = img.astype(self.dtype)
         img = (img - img.mean()) / (img.std() + 1e-8)
+        img = pad_to_size(img)
 
         # on hot encode the mask
-        lbl = lbl.astype(self.dtype)
+        lbl = pad_to_size(lbl.astype(self.dtype))
         mask = to_channels(lbl, classes=self.classes, dtype=self.dtype)
 
         # to tensor
