@@ -24,6 +24,38 @@ from dataset import HipMRIDataset
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data", "keras_slices_data")
 
+PROSTATE = 5
+CLASS_NAMES = ["Background", "Body", "Bone", "Bladder", "Rectum", "Prostate"]
+
+# per class metrics
+def per_class_metrics(pred, gt, num_classes=6, eps=1e-6):
+    """
+    returns dict of arrays of dice, prec, and recall
+    """
+    dice = np.zeros(num_classes)
+    prec = np.zeros(num_classes)
+    rec = np.zeros(num_classes)
+
+    for c in range(num_classes):
+        p = (pred == c)
+        t = (gt == c)
+        tp = (p & t).sum()
+        fp = (p & ~t).sum()
+        fn = (~p & t).sum()
+        dice[c] = (2 * tp + eps) / (2 * tp + fp + fn + eps)
+        prec[c] = (tp + eps) / (tp + fp + eps)
+        rec[c] = (tp + eps) / (tp + fn + eps)
+        
+    return {"dice": dice, "precision": prec, "recall": rec}
+
+# hd95 function
+
+# fragment count function
+
+# evaluation function
+
+# plots
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", choices=["unet2d", "improveduned2d"], default="unet2d")
