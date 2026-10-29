@@ -11,7 +11,21 @@ import torch.nn as nn
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data", "keras_slices_data")
 
+# Training loop
+def train_one_epoch(model, loader, criterion, optimizer, device):
+    model.train()
+    total_loss = 0.0
+    for images, masks in loader:
+        images = images.to(device)
+        labels = masks.argmax(1).to(device)
 
+        optimizer.zero_grad()
+        logits = model(images)
+        loss = criterion(logits, labels)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    return total_loss / len(loader)
 
 def main():
     parser = argparse.ArgumentParser()
