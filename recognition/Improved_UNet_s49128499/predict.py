@@ -16,7 +16,7 @@ import numpy as np
 import torch
 import nibabel as nib
 import matplotlib.pyplot as plt
-from scipy.ndimage import label as cc_label
+from scipy.ndimage import label as cc_label, binary_erosion, distance_transform_edt
 
 from modules import UNet2D
 from dataset import HipMRIDataset
@@ -45,10 +45,32 @@ def per_class_metrics(pred, gt, num_classes=6, eps=1e-6):
         dice[c] = (2 * tp + eps) / (2 * tp + fp + fn + eps)
         prec[c] = (tp + eps) / (tp + fp + eps)
         rec[c] = (tp + eps) / (tp + fn + eps)
-        
+
     return {"dice": dice, "precision": prec, "recall": rec}
 
 # hd95 function
+def hd95_2d(pred_mask, gt_mask, spacing=(1.0, 1.0)):
+    """
+    returns HD95 in mm between 2 binary masks, returns NaN if either is empty
+    uses symmetric surface distances, 95th percentile
+    """
+    if pred_mask.sum() == 0 or gt_mask.sum() == 0:
+        return float("nan")
+
+    # extract surface via binary erosion
+    pred_surf = pred_mask ^ binary_erosion(pred_mask)
+    gt_surf = gt_mask ^ binary_erosion(gt_mask)
+
+    # distance from each surface point to other surface points
+    dt_to_gt = distance_transform_edt(~gt_surf, sampling=spacing)
+    dt_to_pred = distance_transform_edt(~pred_surf, sampling=spacing)
+
+    d_pred_to_gt = dt_to_gt[pred_surf]
+    d_gt_to_pred = dt_to_pred[gt_surf]
+
+    all_d = np.concatenate([d_pred_to_gt, d_gt_to_pred])
+
+    return float(np.percentile(all_d, 95))
 
 # fragment count function
 
