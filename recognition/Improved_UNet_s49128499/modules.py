@@ -18,20 +18,20 @@ class DoubleConv(nn.Module):
         return self.block(x)
 
 class Down(nn.Module):
-    def __init__(self, in_ch, out_ch):
+    def __init__(self, in_ch, out_ch, block=DoubleConv):
         super().__init__()
         self.pool = nn.MaxPool2d(2)
-        self.conv = DoubleConv(in_ch, out_ch)
+        self.conv = block(in_ch, out_ch)
  
     def forward(self, x):
         return self.conv(self.pool(x))
  
  
 class Up(nn.Module):
-    def __init__(self, in_ch, out_ch):
+    def __init__(self, in_ch, out_ch, block=DoubleConv):
         super().__init__()
         self.up = nn.ConvTranspose2d(in_ch, in_ch // 2, 2, stride=2)
-        self.conv = DoubleConv(in_ch, out_ch)
+        self.conv = block(in_ch, out_ch)
  
     def forward(self, x, skip):
         x = self.up(x)
@@ -67,3 +67,22 @@ class UNet2D(nn.Module):
         x = self.u3(x, x2)
         x = self.u4(x, x1)
         return self.out(x)  # logits (B, C, H, W)
+
+class ResidualBlock(nn.Module):
+    """conv-BN-ReLU-conv-BN, plus a shortcut, then ReLU."""
+    def __init__(self, in_ch, out_ch):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_ch, out_ch, 3, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_ch)
+        self.conv2 = nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_ch)
+        self.relu = nn.ReLU(inplace=True)
+        # 1x1 conv so the shortcut matches the channel count when it changes
+        self.shortcut = (nn.Identity() if in_ch == out_ch else
+                         nn.Sequential(nn.Conv2d(in_ch, out_ch, 1, bias=False),
+                                       nn.BatchNorm2d(out_ch)))
+
+    def forward(self, x):
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        return self.relu(out + self.shortcut(x))
