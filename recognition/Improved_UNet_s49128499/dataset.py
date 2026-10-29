@@ -9,7 +9,7 @@ from tqdm import tqdm
 import glob
 import os
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 def to_channels(arr: np.ndarray, classes=(0, 1, 2, 3, 4, 5), dtype=np.uint8) -> np.ndarray:
     # channels = np.unique(arr)
@@ -120,11 +120,50 @@ class HipMRIDataset(Dataset):
         mask_tensor = torch.from_numpy(mask).permute(2, 0, 1)
 
         # transform the image and mask tgt
-
+        # todo
 
         return img_tensor, mask_tensor
 
     def __len__(self):
         return len(self.image_paths)
 
-        
+# data augmentation
+# todo
+
+# dataloaders
+def build_dataloaders(base_dir, batch_size=4, num_workers=0, classes=(0, 1, 2, 3, 4, 5)):
+    """
+    Build the dataloaders for the train test and validation sets
+
+    base_dir: path to the data
+    batch_size: samples per batch
+    num_workers: parallel loader processes
+    classes: class list for one hot encoding
+
+    returns (train_loader, val_loader, test_loader)
+    """
+
+    train = HipMRIDataset(
+        os.path.join(base_dir, "keras_slices_train"),
+        os.path.join(base_dir, "keras_slices_seg_train"),
+        # transform=Transform(),
+        classes=classes
+    )
+    val = HipMRIDataset(
+        os.path.join(base_dir, "keras_slices_validate"),
+        os.path.join(base_dir, "keras_slices_seg_validate"),
+        transform=None,
+        classes=classes
+    )
+    test = HipMRIDataset(
+        os.path.join(base_dir, "keras_slices_test"),
+        os.path.join(base_dir, "keras_slices_seg_test"),
+        transform=None,
+        classes=classes
+    )
+
+    train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=True)
+    val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
+    test_loader = DataLoader(test, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
+
+    return train_loader, val_loader, test_loader
