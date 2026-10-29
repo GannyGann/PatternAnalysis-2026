@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import label as cc_label, binary_erosion, distance_transform_edt
 import time
 
-from modules import UNet2D
+from modules import UNet2D, ImprovedUNet2D
 from dataset import HipMRIDataset
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -225,6 +225,7 @@ def main():
         model = UNet2D(in_channels=1, num_classes=6).to(device)
         chk_path = os.path.join(SCRIPT_DIR, "models", "best_unet2d.pt")
     else:
+        model = ImprovedUNet2D(in_channels=1, num_classes=6).to(device)
         chk_path = os.path.join(SCRIPT_DIR, "models", "best_improvedunet2d.pt")
 
     

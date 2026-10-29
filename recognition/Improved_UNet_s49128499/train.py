@@ -1,5 +1,5 @@
 from dataset import build_dataloaders
-from modules import UNet2D
+from modules import UNet2D, ImprovedUNet2D
 
 import os
 import argparse
@@ -84,10 +84,10 @@ def per_class_metrics(logits, target, num_classes=6, eps=1e-6):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="unet2d")
+    parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="improvedunet2d")
     parser.add_argument("--data-dir", default=DATA_DIR)
     parser.add_argument("--epochs", type=int, default=40)
-    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--num-workers", type=int, default=2)
     args = parser.parse_args()
@@ -108,6 +108,8 @@ def main():
     # model
     if args.model == "unet2d":
         model = UNet2D(in_channels=1, num_classes=6).to(device)
+    else:
+        model = ImprovedUNet2D(in_channels=1, num_classes=6).to(device)
 
     # weighted loss
     weights = torch.tensor([0.1, 0.1, 0.5, 2.0, 5.0, 10.0]).to(device)
