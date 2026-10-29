@@ -7,6 +7,7 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
+import time
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data", "keras_slices_data")
@@ -83,8 +84,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="unet2d")
     parser.add_argument("--data-dir", default=DATA_DIR)
-    parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--epochs", type=int, default=2)
+    parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--num-workers", type=int, default=0)
     args = parser.parse_args()
@@ -113,9 +114,38 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # training
+    tracking = {"train_loss": [], "val_loss": [], "val_dice": []}
+
+    # peak memory
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
 
     for epoch in range(1, args.epochs + 1):
-        pass
+        start = time.perf_counter()
+
+        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
+        val_metrics = validate(model, val_loader, criterion, device)
+
+        if device.type == "cuda":
+            torch.cuda.synchronize()
+
+        elapsed = time.perf_counter() - start
+
+        prostate_dice = val_metrics["dice"][5].item()
+        tracking["train_loss"].append(train_loss)
+        tracking["val_loss"].append(val_metrics["loss"])
+        tracking["val_dice"].append(prostate_dice)
+
+        print(f"Epoch: ", epoch, "/", args.epochs)
+        print(f"Train Loss: {train_loss:.4f}")
+        print(f"Val Loss: {val_metrics["loss"]:.4f}")
+        print(f"prostate_dice={prostate_dice:.4f}")
+        print(f"time={elapsed:.1f}s")
+
+    # peak vram
+    if torch.cuda.is_available():
+        peak = torch.cuda.max_memory_allocated() / 1024**3
+        print(f"Peak VRAM: {peak:.2f} GB")
 
 if __name__ == "__main__":
     main()
