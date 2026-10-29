@@ -84,11 +84,17 @@ class HipMRIDataset(Dataset):
     classes: class list for the one hot encoding
     """
     def __init__(self, image_dir, label_dir, transform=None, classes=(0, 1, 2, 3, 4, 5), dtype=np.float32):
-        image_paths = sorted(glob.glob(os.path.join(image_dir, "*.nii.gz")))
-        label_paths = sorted(glob.glob(os.path.join(label_dir, "*.nii.gz")))
+        self.image_paths = sorted(glob.glob(os.path.join(image_dir, "*.nii.gz")))
+        self.label_paths = sorted(glob.glob(os.path.join(label_dir, "*.nii.gz")))
         self.transform = transform
         self.classes = classes
         self.dtype = dtype
+
+        # check paths
+        if len(self.image_paths) == 0:
+            raise FileNotFoundError("No .nii.gz files found in image directory")
+        if len(self.image_paths) != len(self.label_paths):
+            raise ValueError("Image and label counts are mismatched")
 
     def __getitem__(self, key):
         # load img
@@ -115,6 +121,10 @@ class HipMRIDataset(Dataset):
 
         # transform the image and mask tgt
 
+
         return img_tensor, mask_tensor
+
+    def __len__(self):
+        return len(self.image_paths)
 
         
