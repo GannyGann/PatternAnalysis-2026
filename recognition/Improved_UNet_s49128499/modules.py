@@ -86,3 +86,30 @@ class ResidualBlock(nn.Module):
         out = self.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         return self.relu(out + self.shortcut(x))
+
+class ImprovedUNet2D(nn.Module):
+    def __init__(self, in_channels=1, num_classes=6, base=32):
+        super().__init__()
+        b, R = base, ResidualBlock
+        self.inc = R(in_channels, b)
+        self.d1 = Down(b, b * 2, R)
+        self.d2 = Down(b * 2, b * 4, R)
+        self.d3 = Down(b * 4, b * 8, R)
+        self.d4 = Down(b * 8, b * 16, R)
+        self.u1 = Up(b * 16, b * 8, R)
+        self.u2 = Up(b * 8, b * 4, R)
+        self.u3 = Up(b * 4, b * 2, R)
+        self.u4 = Up(b * 2, b, R)
+        self.out = nn.Conv2d(b, num_classes, 1)
+
+    def forward(self, x):
+        x1 = self.inc(x)
+        x2 = self.d1(x1)
+        x3 = self.d2(x2)
+        x4 = self.d3(x3)
+        x5 = self.d4(x4)
+        x = self.u1(x5, x4)
+        x = self.u2(x, x3)
+        x = self.u3(x, x2)
+        x = self.u4(x, x1)
+        return self.out(x)
