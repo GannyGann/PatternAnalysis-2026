@@ -104,7 +104,7 @@ class HipMRIDataset(Dataset):
             img = img[:, :, 0]
 
         # load mask
-        lbl = nib.load(self.label_dir[key]).get_fdata(caching='unchanged')
+        lbl = nib.load(self.label_paths[key]).get_fdata(caching='unchanged')
         if len(lbl) == 3:
             lbl = lbl[:, :, 0]
 
