@@ -252,6 +252,10 @@ def main():
     lat = measure_latency(model, test_dataset, device)
     print(f"Latency (256x128): median={lat['median']:.2f} ms, p95={lat['p95']:.2f} ms")
 
+    # count parameters
+    total_param, trainable_param = count_parameters(model)
+    print(f"Total Parameters: {total_param}")
+    print(f"Trainable Parameters: {trainable_param}")
     # evaluate
     results = evaluate(model, test_dataset, device)
 
