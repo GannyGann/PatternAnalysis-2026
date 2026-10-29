@@ -83,13 +83,19 @@ def count_fragments(mask, min_size=50):
     sizes = np.bincount(labeled.ravel())
     return int((sizes[1:] > min_size).sum())
 
+# parameter counting function
+def count_parameters(model):
+    total = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return total, trainable
+
 # evaluation function
 
 # plots
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["unet2d", "improveduned2d"], default="unet2d")
+    parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="unet2d")
     parser.add_argument("--data-dir", default=DATA_DIR)
     parser.add_argument("--n-panels", type=int, default=5)
     args = parser.parse_args()
