@@ -125,6 +125,55 @@ def measure_latency(model, test_dataset, device, n_warmup=5, n_measure=50):
 
 
 # evaluation function
+@torch.no_grad()
+def evaluate(model, test_dataset, device):
+    model.eval()
+
+    TP = FP = FN = 0
+    all_dice, all_prec, all_rec = [], [], []
+    hd95_values, fragment_counts = [], []
+
+    for idx in range(len(test_dataset)):
+        img, label = test_dataset[idx]
+        logits = model(img.unsqueeze(0).to(device))
+        pred = logits.argmax(1).squeeze(0).cpu().numpy()
+        gt = label.argmax(0).numpy()
+
+        m = per_class_metrics(pred,gt)
+        all_dice.append(m["dice"])
+        all_dice.append(m["precision"])
+        all_dice.append(m["recall"])
+
+        p = (pred == PROSTATE)
+        t = (gt == PROSTATE)
+        TP += (p & t).sum()
+        FP += (p & ~t).sum()
+        FN += (~p & t).sum()
+
+        if t.sum() > 0:
+            hd95_values.append(hd95_2d(p, t))
+            fragment_counts.append(count_fragments(p, min_size=50))
+
+    mean_dice = np.array(all_dice).mean(0)
+    mean_prec = np.array(all_prec).mean(0)
+    mean_rec = np.array(all_rec).mean(0)
+
+    micro_prec = TP / (TP + FP) if (TP + FP) > 0 else float("nan")
+    micro_rec = TP / (TP + FN) if (TP + FN) > 0 else float("nan")
+    valid_hd = [h for h in hd95_values if not np.isnan(h)]
+    mean_hd95 = float(np.mean(valid_hd)) if valid_hd else float("nan")
+
+    print("\n=== Test results ===")
+    print(f"{'Class':<12} {'Dice':>8} {'Prec':>8} {'Rec':>8}")
+    for c in range(6):
+        print(f"{CLASS_NAMES[c]:<12} {mean_dice[c]:>8.4f} {mean_prec[c]:>8.4f} {mean_rec[c]:>8.4f}")
+
+    print(f"\nProstate micro: precision={micro_prec:.4f}  recall={micro_rec:.4f}")
+    print(f"Prostate HD95: {mean_hd95:.2f} mm")
+    print(f"Mean fragments >50px: {np.mean(fragment_counts):.2f}" if fragment_counts else "Mean fragments: n/a")
+
+    return {"dice": mean_dice, "prec": mean_prec, "rec": mean_rec,
+            "micro_prec": micro_prec, "micro_rec": micro_rec, "hd95": mean_hd95}
 
 # plots
 
