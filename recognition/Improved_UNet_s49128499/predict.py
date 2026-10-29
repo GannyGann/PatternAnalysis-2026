@@ -36,6 +36,7 @@ def per_class_metrics(pred, gt, num_classes=6, eps=1e-6):
     dice = np.zeros(num_classes)
     prec = np.zeros(num_classes)
     rec = np.zeros(num_classes)
+    iou  = np.zeros(num_classes)
 
     for c in range(num_classes):
         p = (pred == c)
@@ -46,8 +47,9 @@ def per_class_metrics(pred, gt, num_classes=6, eps=1e-6):
         dice[c] = (2 * tp + eps) / (2 * tp + fp + fn + eps)
         prec[c] = (tp + eps) / (tp + fp + eps)
         rec[c] = (tp + eps) / (tp + fn + eps)
+        iou[c]  = (tp + eps) / (tp + fp + fn + eps)
 
-    return {"dice": dice, "precision": prec, "recall": rec}
+    return {"dice": dice, "precision": prec, "recall": rec, "iou": iou}
 
 # hd95 function
 def hd95_2d(pred_mask, gt_mask, spacing=(1.0, 1.0)):
@@ -130,7 +132,7 @@ def evaluate(model, test_dataset, device):
     model.eval()
 
     TP = FP = FN = 0
-    all_dice, all_prec, all_rec = [], [], []
+    all_dice, all_prec, all_rec, all_iou = [], [], [], []
     hd95_values, fragment_counts = [], []
 
     for idx in range(len(test_dataset)):
@@ -143,6 +145,7 @@ def evaluate(model, test_dataset, device):
         all_dice.append(m["dice"])
         all_prec.append(m["precision"])
         all_rec.append(m["recall"])
+        all_iou.append(m["iou"])
 
         p = (pred == PROSTATE)
         t = (gt == PROSTATE)
@@ -157,6 +160,7 @@ def evaluate(model, test_dataset, device):
     mean_dice = np.array(all_dice).mean(axis=0)
     mean_prec = np.array(all_prec).mean(axis=0)
     mean_rec = np.array(all_rec).mean(axis=0)
+    mean_iou = np.array(all_iou).mean(axis=0)
 
     micro_prec = TP / (TP + FP) if (TP + FP) > 0 else float("nan")
     micro_rec = TP / (TP + FN) if (TP + FN) > 0 else float("nan")
@@ -164,15 +168,15 @@ def evaluate(model, test_dataset, device):
     mean_hd95 = float(np.mean(valid_hd)) if valid_hd else float("nan")
 
     print("\n=== Test results ===")
-    print(f"{'Class':<12} {'Dice':>8} {'Prec':>8} {'Rec':>8}")
+    print(f"{'Class':<12} {'Dice':>8} {'Prec':>8} {'Rec':>8} {'IoU':>8}")
     for c in range(6):
-        print(f"{CLASS_NAMES[c]:<12} {mean_dice[c]:>8.4f} {mean_prec[c]:>8.4f} {mean_rec[c]:>8.4f}")
+        print(f"{CLASS_NAMES[c]:<12} {mean_dice[c]:>8.4f} {mean_prec[c]:>8.4f} {mean_rec[c]:>8.4f} {mean_iou[c]:>8.4f}")
 
     print(f"\nProstate micro: precision={micro_prec:.4f}  recall={micro_rec:.4f}")
     print(f"Prostate HD95: {mean_hd95:.2f} mm")
     print(f"Mean fragments >50px: {np.mean(fragment_counts):.2f}" if fragment_counts else "Mean fragments: n/a")
 
-    return {"dice": mean_dice, "prec": mean_prec, "rec": mean_rec,
+    return {"dice": mean_dice, "prec": mean_prec, "rec": mean_rec, "iou": mean_iou,
             "micro_prec": micro_prec, "micro_rec": micro_rec, "hd95": mean_hd95}
 
 # plots (4-panel)
