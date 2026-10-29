@@ -10,6 +10,7 @@ import glob
 import os
 import torch
 from torch.utils.data import Dataset, DataLoader
+import torchvision.transforms.functional as TF
 
 def to_channels(arr: np.ndarray, classes=(0, 1, 2, 3, 4, 5), dtype=np.uint8) -> np.ndarray:
     # channels = np.unique(arr)
@@ -83,7 +84,7 @@ class HipMRIDataset(Dataset):
     transform: whether to apply a transform or not
     classes: class list for the one hot encoding
     """
-    def __init__(self, image_dir, label_dir, transform=None, classes=(0, 1, 2, 3, 4, 5), dtype=np.float32):
+    def __init__(self, image_dir, label_dir, transform=False, classes=(0, 1, 2, 3, 4, 5), dtype=np.float32):
         self.image_paths = sorted(glob.glob(os.path.join(image_dir, "*.nii.gz")))
         self.label_paths = sorted(glob.glob(os.path.join(label_dir, "*.nii.gz")))
         self.transform = transform
@@ -120,7 +121,8 @@ class HipMRIDataset(Dataset):
         mask_tensor = torch.from_numpy(mask).permute(2, 0, 1)
 
         # transform the image and mask tgt
-        # todo
+        if self.transform:
+            img_tensor, mask_tensor = transform(img_tensor, mask_tensor)
 
         return img_tensor, mask_tensor
 
@@ -128,7 +130,18 @@ class HipMRIDataset(Dataset):
         return len(self.image_paths)
 
 # data augmentation
-# todo
+def transform(image, mask):
+    # horizontal flip
+    if torch.rand(1).item() < 0.5:
+        image = TF.hflip(image)
+        mask = TF.hflip(mask)
+
+    # rotation of 10 deg +-
+    angle = float(torch.empty(1).uniform_(-10, 10))
+    image = TF.rotate(image, angle)
+    mask = TF.rotate(mask, angle)
+
+    return image, mask
 
 # dataloaders
 def build_dataloaders(base_dir, batch_size=4, num_workers=0, classes=(0, 1, 2, 3, 4, 5)):
@@ -146,19 +159,19 @@ def build_dataloaders(base_dir, batch_size=4, num_workers=0, classes=(0, 1, 2, 3
     train = HipMRIDataset(
         os.path.join(base_dir, "keras_slices_train"),
         os.path.join(base_dir, "keras_slices_seg_train"),
-        # transform=Transform(),
+        transform=True,
         classes=classes
     )
     val = HipMRIDataset(
         os.path.join(base_dir, "keras_slices_validate"),
         os.path.join(base_dir, "keras_slices_seg_validate"),
-        transform=None,
+        transform=False,
         classes=classes
     )
     test = HipMRIDataset(
         os.path.join(base_dir, "keras_slices_test"),
         os.path.join(base_dir, "keras_slices_seg_test"),
-        transform=None,
+        transform=False,
         classes=classes
     )
 
