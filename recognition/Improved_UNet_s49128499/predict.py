@@ -73,6 +73,15 @@ def hd95_2d(pred_mask, gt_mask, spacing=(1.0, 1.0)):
     return float(np.percentile(all_d, 95))
 
 # fragment count function
+def count_fragments(mask, min_size=50):
+    """
+    counts the number of connected components larger than the min size
+    """
+    labeled, n = cc_label(mask)
+    if n == 0:
+        return 0
+    sizes = np.bincount(labeled.ravel())
+    return int((sizes[1:] > min_size).sum())
 
 # evaluation function
 
