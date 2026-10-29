@@ -17,6 +17,7 @@ import torch
 import nibabel as nib
 import matplotlib.pyplot as plt
 from scipy.ndimage import label as cc_label, binary_erosion, distance_transform_edt
+import time
 
 from modules import UNet2D
 from dataset import HipMRIDataset
@@ -85,9 +86,43 @@ def count_fragments(mask, min_size=50):
 
 # parameter counting function
 def count_parameters(model):
+    """
+    counts how many learnable numbers are in the model
+    """
     total = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     return total, trainable
+
+# latency measuring function
+@torch.no_grad()
+def measure_latency(model, test_dataset, device, n_warmup=5, n_measure=50):
+    """
+    measures how long the model takes to segment a slice. Timing starts after 5 passes (n_warmup)
+    and times 50 passes (n_measure). Median over mean as mean is sensitive to outliers. P95 for the worst latency
+    95% of slices experience
+    """
+    model.eval()
+    for i in range(n_warmup):
+        img, _ = test_dataset[i % len(test_dataset)]
+        _ = model(img.unsqueeze(0).to(device))
+    if device.type == "cuda":
+        torch.cuda.synchronize()
+
+    times = []
+    for i in range(n_measure):
+        img, _ = test_dataset[i % len(test_dataset)]
+        img = img.unsqueeze(0).to(device)
+        if device.type == "cuda":
+            torch.cuda.synchronize()
+        start = time.perf_counter()
+        _ = model(img)
+        if device.type == "cuda":
+            torch.cuda.synchronize()
+        times.append((time.perf_counter() - start) * 1000)
+
+    times = np.array(times)
+    return {"median": np.median(times), "p95": np.percentile(times, 95)}
+
 
 # evaluation function
 
