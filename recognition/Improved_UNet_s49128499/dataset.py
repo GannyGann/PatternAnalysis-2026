@@ -6,6 +6,8 @@ Section B: Reading Nifti files of the Report Task Sheet (COMP3710_Report_2026_dr
 import numpy as np
 import nibabel as nib
 from tqdm import tqdm
+import glob
+import os
 
 def to_channels(arr: np.ndarray, classes=(0, 1, 2, 3, 4, 5), dtype=np.uint8) -> np.ndarray:
     # channels = np.unique(arr)
@@ -68,3 +70,18 @@ def load_data_2D(imageNames, normImage=False, categorical=False, dtype=np.float3
         return images, affines
     else:
         return images
+
+class Dataset():
+    """
+    Loads each slice each time for each call instead of loading everything in ram
+
+    image_dir: directory of nifti images
+    label_dir: directory of nifti masks
+    transform: whether to apply a transform or not
+    classes: class list for the one hot encoding
+    """
+    def __init__(self, image_dir, label_dir, transform=None, classes=(0, 1, 2, 3, 4, 5)):
+        image_paths = sorted(glob.glob(os.path.join(image_dir, "*.nii.gz")))
+        label_paths = sorted(glob.glob(os.path.join(label_dir, "*.nii.gz")))
+        self.transform = transform
+        self.classes = classes
