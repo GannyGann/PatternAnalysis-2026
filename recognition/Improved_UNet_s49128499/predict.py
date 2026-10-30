@@ -211,6 +211,62 @@ def plot_panel(model, test_ds, idx, device, save_path):
     plt.savefig(save_path, dpi=150)
     plt.close()
 
+@torch.no_grad()
+def find_failure_cases(model, test_ds, device, top_k=10):
+    """
+    Score every test slice by FP (leakage) and FN (under-contouring),
+    return the worst cases for each failure mode.
+    """
+    model.eval()
+    results = []
+
+    for idx in range(len(test_ds)):
+        img, mask = test_ds[idx]
+        logits = model(img.unsqueeze(0).to(device))
+        pred = logits.argmax(1).squeeze(0).cpu().numpy()
+        gt = mask.argmax(0).numpy()
+
+        p = (pred == PROSTATE)
+        t = (gt == PROSTATE)
+
+        tp = (p & t).sum()
+        fp = (p & ~t).sum()   # leakage
+        fn = (~p & t).sum()   # under-contouring
+
+        # skip slices with no GT prostate (can't diagnose boundary failure)
+        if t.sum() == 0:
+            continue
+
+        dice = 2 * tp / (2 * tp + fp + fn + 1e-6)
+        results.append({
+            "idx": idx,
+            "tp": int(tp), "fp": int(fp), "fn": int(fn),
+            "dice": float(dice),
+            "gt_size": int(t.sum()),
+        })
+
+    # Rank by failure type
+    by_fp = sorted(results, key=lambda r: r["fp"], reverse=True)   # worst leakage
+    by_fn = sorted(results, key=lambda r: r["fn"], reverse=True)   # worst under-contouring
+    by_dice = sorted(results, key=lambda r: r["dice"])             # worst overall
+
+    print("\n=== Top 5 leakage cases (highest FP) ===")
+    for r in by_fp[:5]:
+        print(f"  idx={r['idx']}  FP={r['fp']}  FN={r['fn']}  "
+              f"GT={r['gt_size']}  Dice={r['dice']:.3f}")
+
+    print("\n=== Top 5 under-contouring cases (highest FN) ===")
+    for r in by_fn[:5]:
+        print(f"  idx={r['idx']}  FP={r['fp']}  FN={r['fn']}  "
+              f"GT={r['gt_size']}  Dice={r['dice']:.3f}")
+
+    print("\n=== Top 5 worst Dice cases ===")
+    for r in by_dice[:5]:
+        print(f"  idx={r['idx']}  FP={r['fp']}  FN={r['fn']}  "
+              f"GT={r['gt_size']}  Dice={r['dice']:.3f}")
+
+    return by_fp, by_fn, by_dice
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="improvedunet2d")
@@ -267,7 +323,7 @@ def main():
         if (gt == PROSTATE).sum() > 0:
             prostate_indices.append(idx)
 
-    print(f"Slices containing prostate: {len(prostate_indices)} / {len(test_dataset)}")
+    # print(f"Slices containing prostate: {len(prostate_indices)} / {len(test_dataset)}")
 
     # sample evenly from slices that contain prostate
     n = min(args.n_panels, len(prostate_indices))
