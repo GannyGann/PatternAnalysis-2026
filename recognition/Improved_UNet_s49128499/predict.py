@@ -316,23 +316,30 @@ def main():
     results = evaluate(model, test_dataset, device)
 
     # find all test slices that contain prostate
-    prostate_indices = []
-    for idx in range(len(test_dataset)):
-        _, mask = test_dataset[idx]
-        gt = mask.argmax(0).numpy()
-        if (gt == PROSTATE).sum() > 0:
-            prostate_indices.append(idx)
+    # prostate_indices = []
+    # for idx in range(len(test_dataset)):
+    #     _, mask = test_dataset[idx]
+    #     gt = mask.argmax(0).numpy()
+    #     if (gt == PROSTATE).sum() > 0:
+    #         prostate_indices.append(idx)
 
     # print(f"Slices containing prostate: {len(prostate_indices)} / {len(test_dataset)}")
 
     # sample evenly from slices that contain prostate
-    n = min(args.n_panels, len(prostate_indices))
-    step = max(1, len(prostate_indices) // n)
-    selected = [prostate_indices[i * step] for i in range(n)]
-    for i, idx in enumerate(selected):
-        path = os.path.join(args.out_dir, f"{args.model}_panel_{i}.png")
+    # n = min(args.n_panels, len(prostate_indices))
+    # step = max(1, len(prostate_indices) // n)
+    # selected = [prostate_indices[i * step] for i in range(n)]
+    # for i, idx in enumerate(selected):
+    #     path = os.path.join(args.out_dir, f"{args.model}_panel_{i}.png")
+    #     plot_panel(model, test_dataset, idx, device, path)
+    # print(f"Saved {n} panels to {args.out_dir}/")
+
+    by_fp, by_fn, _ = find_failure_cases(model, test_dataset, device)
+
+    case_indices = [by_fp[0]["idx"], by_fp[1]["idx"], by_fn[0]["idx"]]
+    for i, idx in enumerate(case_indices):
+        path = os.path.join(args.out_dir, f"autopsy_case_{i+1}_idx{idx}.png")
         plot_panel(model, test_dataset, idx, device, path)
-    print(f"Saved {n} panels to {args.out_dir}/")
 
 if __name__ == "__main__":
     main()
