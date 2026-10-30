@@ -6,7 +6,7 @@ per-class Dice, precision, recall, prostate HD95 in mm, comparison figures, and 
 
 Usage:
 python predict.py --model unet2d
-python predict.py --model improved
+python predict.py --model improvedunet2d
 """
 import argparse
 import os
@@ -179,7 +179,7 @@ def evaluate(model, test_dataset, device):
     return {"dice": mean_dice, "prec": mean_prec, "rec": mean_rec, "iou": mean_iou,
             "micro_prec": micro_prec, "micro_rec": micro_rec, "hd95": mean_hd95}
 
-# plots (4-panel)
+# plots (4 panels)
 @torch.no_grad()
 def plot_panel(model, test_ds, idx, device, save_path):
     img, mask = test_ds[idx]
@@ -213,10 +213,10 @@ def plot_panel(model, test_ds, idx, device, save_path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="unet2d")
+    parser.add_argument("--model", choices=["unet2d", "improvedunet2d"], default="improvedunet2d")
     parser.add_argument("--data-dir", default=DATA_DIR)
     parser.add_argument("--n-panels", type=int, default=5)
-    parser.add_argument("--out-dir", default=os.path.join(SCRIPT_DIR, "figures"))
+    parser.add_argument("--out-dir", default=os.path.join(SCRIPT_DIR, "images"))
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)

@@ -1,3 +1,11 @@
+"""
+train.py, used to train the baseline and improved u-net 2d models
+
+Usage:
+python train.py --model unet2d
+python train.py --model improvedunet2d
+"""
+
 from dataset import build_dataloaders
 from modules import UNet2D, ImprovedUNet2D
 
@@ -90,7 +98,10 @@ def main():
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--num-workers", type=int, default=2)
+    parser.add_argument("--out-dir", default=os.path.join(SCRIPT_DIR, "models"))
     args = parser.parse_args()
+
+    os.makedirs(args.out_dir, exist_ok=True)
 
     # seeds
     random.seed(42)
@@ -156,10 +167,10 @@ def main():
                 "optimizer_state": optimizer.state_dict(),
                 "val_dice": prostate_dice,
                 "args": vars(args),
-            }, os.path.join(SCRIPT_DIR, f"best_{args.model}.pt"))
+            }, os.path.join(args.out_dir, f"best_{args.model}.pt"))
 
     # save final checkpoint
-    torch.save(model.state_dict(), os.path.join(SCRIPT_DIR, f"final_{args.model}.pt"))
+    torch.save(model.state_dict(), os.path.join(args.out_dir, f"final_{args.model}.pt"))
 
     # peak vram
     if torch.cuda.is_available():
